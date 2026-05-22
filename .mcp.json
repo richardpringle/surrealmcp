@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "surrealmcp": {
+      "command": "cargo",
+      "args": [
+        "run", "--quiet", "--",
+        "--endpoint", "wss://ethereal-island-06edicei19rft9vkjrlpc29bdc.aws-use1.surreal.cloud",
+        "--ns", "claude",
+        "--db", "memory"
+      ],
+      "env": {
+        "RUST_LOG": "debug"
+      }
+    }
+  }
+}
