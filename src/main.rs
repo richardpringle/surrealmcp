@@ -62,11 +62,13 @@ async fn main() -> Result<()> {
         "Auth credentials"
     );
 
-    // Connect to SurrealDB
-    tracing::info!(endpoint = %cli.endpoint, "Connecting to SurrealDB");
-    let db = surrealdb::engine::any::connect(&cli.endpoint).await?;
+    let endpoint = &cli.endpoint;
+    let ns = &cli.ns;
+    let db_name = &cli.db;
+    tracing::info!(%endpoint, "Connecting to SurrealDB");
+    let db = surrealdb::engine::any::connect(endpoint).await?;
     tracing::debug!("Connected, setting ns/db");
-    db.use_ns(&cli.ns).use_db(&cli.db).await?;
+    db.use_ns(ns).use_db(db_name).await?;
     tracing::debug!("ns/db set");
     if let (Some(user), Some(pass)) = (cli.user.clone(), cli.pass.clone()) {
         db.signin(surrealdb::opt::auth::Root {
@@ -77,7 +79,7 @@ async fn main() -> Result<()> {
         tracing::info!(%user, "Authenticated");
     }
 
-    tracing::info!(ns = %cli.ns, db = %cli.db, "Connected, starting MCP server on stdio");
+    tracing::info!(%ns, db = %db_name, "Connected, starting MCP server on stdio");
 
     let service = tools::SurrealMcp::new(db, cli.ns, cli.db);
     let server = rmcp::serve_server(service, (tokio::io::stdin(), tokio::io::stdout())).await?;
