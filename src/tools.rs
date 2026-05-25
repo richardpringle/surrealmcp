@@ -40,6 +40,7 @@ impl SurrealMcp {
         }
     }
 
+    #[tracing::instrument(skip(self, sql), fields(sql_len = sql.len()))]
     async fn execute(
         &self,
         max_tier: Tier,
@@ -47,9 +48,10 @@ impl SurrealMcp {
         ns: Option<&str>,
         db: Option<&str>,
     ) -> Result<CallToolResult, McpError> {
-        // Validate tier
         let (query_tier, keywords) = classify_query(sql);
+        tracing::debug!(%query_tier, ?keywords, "Classified query");
         if query_tier > max_tier {
+            tracing::warn!(%query_tier, %max_tier, ?keywords, "Rejected: tier exceeded");
             return Err(McpError::invalid_params(
                 format!(
                     "Query requires '{query_tier}' tier (found: {keywords:?}) \
@@ -60,7 +62,6 @@ impl SurrealMcp {
             ));
         }
 
-        // Build query with USE prefix when overrides are specified
         let query = if ns.is_some() || db.is_some() {
             let ns = ns.unwrap_or(&self.default_ns);
             let db = db.unwrap_or(&self.default_db);
@@ -69,12 +70,10 @@ impl SurrealMcp {
             sql.to_string()
         };
 
-        // Execute
-        let mut response = self
-            .db
-            .query(&query)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let mut response = self.db.query(&query).await.map_err(|e| {
+            tracing::error!(error = %e, "Query failed");
+            McpError::internal_error(e.to_string(), None)
+        })?;
 
         // Collect results, skipping the USE statement if we prepended one
         let skip = if ns.is_some() || db.is_some() { 1 } else { 0 };
